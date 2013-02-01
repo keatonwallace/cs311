@@ -1,4 +1,4 @@
-/*copyfile, tlpi_hdr.h, get_num.h, error_functions.h,
+/*append, tlpi_hdr.h, get_num.h, error_functions.h,
 error_functions.c all come directly from the the book
 and I take no credit for it*/
 
@@ -17,7 +17,7 @@ void fatal(const char *format, ...);
 void usageErr(const char *format, ...);
 void cmdLineErr(const char *format, ...);
 
-void copyfile()
+void append(argv*[])
 {
 	int inputFd, outputFd, openFlags;
     mode_t filePerms;
@@ -51,5 +51,17 @@ void copyfile()
 
 int main(int argc, char *argv[])
 {
+	if(strcmp(argv[1], "-q")==0)
+		append(argv[]);
+	if(strcmp(argv[1], "-x")==0)
+		extract();
+	if(strcmp(argv[1], "-t")==0)
+		concisetoc();
+	if(strcmp(argv[1], "-v")==0)
+		verbosetoc();
+	if(strcmp(argv[1], "-d")==0)
+		delete();
+	if(strcmp(argv[1], "-d")==0)
+		regular();
 	return 0;
 }

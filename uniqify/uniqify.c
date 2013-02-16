@@ -81,28 +81,81 @@ int **build_bathroom(int num)
 
 void destroy_bathroom(int num_toilets, int **bathroom)
 {
+	int x;
+	for(x = 0; x < num_toilets; x++){
+		free(bathroom[x]);
+	}
+	free(bathroom);
 }
 
 void hire_nanny(int **children)
 {
+	pid_t pid;
+	int x;
+	switch(pid = fork()){
+	case -1:
+		//error case
+		perror("couldn't spawn supressor");
+		break;
+	case 0:
+		//child case
+		//write later
+		break;
+	case 1:
+		//parent case
+		//kill nanny after children are disciplined
+		waitpid(pid, NULL, 0);
+		break;
+	}
 }
 
 void nanny_disciplines(int **children)
 {
 }
 
+void nevermore(int errno)
+{
+	int x;
+	if(children != NULL){
+		//need num_children for this
+		for(x = 0; x < num_children; x++){
+			kill(children[x], SIGQUIT);
+		}
+	}
+	while ((childPid = wait(NULL)) != -1)
+		continue;
+	if (errno != ECHILD) /* An unexpected error... */
+		errExit("wait");
+	//stopped here
+}
+
 int main(int argc, char **argv)
 {
 	int num_children = atoi(argv[1]);
+	struct sigaction quoth_the_raven;
+	quoth_the_raven.sa_handler = nevermore;
+	sigemptyset(&quoth_the_raven.sa_mask);
+	quoth_the_raven.sa_flags = 0;
+	sigaction(SIGQUIT, &quoth_the_raven, NULL);
+	sigaction(SIGINT, &quoth_the_raven, NULL);
+	sigaction(SIGHUP, &quoth_the_raven, NULL);
 	to_children = build_bathroom(num_children);
 	to_nanny = build_bathroom(num_children);
 	spawn(num_children, to_children, to_nanny);
+	// parse of some kind
+	hire_nanny(to_nanny);
+	//murder children
+	break_bathroom(num_children, to_children);
+	break_bathroom(num_children, to_nanny);
+	free(children);
 	return 0;
 }
 
 /*todo
  *figure out sig handler
- *spawn suppressor
+ *spawn suppressor --nanny has been hired
+ *free allocated arrays --bathroom has been destroyed
  *choose/use supressor
+ *parser
  *debug
  */

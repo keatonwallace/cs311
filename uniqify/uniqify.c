@@ -17,7 +17,7 @@
 //exec lp
 //char* NULL
 //./a.out<in>out
-
+#define MAX_WORD_LEN 100
 pid_t *children;
 int **to_children;
 int **to_nanny;
@@ -107,6 +107,8 @@ void hire_nanny(int **children)
 	case 0:
 		//child case
 		//write later
+		suppressor_process(children);
+		_exit(EXIT_SUCCESS);
 		break;
 	case 1:
 		//parent case
@@ -116,9 +118,53 @@ void hire_nanny(int **children)
 	}
 }
 
-void nanny_disciplines(int **children)
-{
+//void nanny_disciplines(int **children)
+//{
+//}
+
+void word_vomit(int numsorts, int **outPipe)
+{ //Round Robin parser
+	int i;
+	char word[MAX_WORD_LEN];
+
+	//Close read end of pipes
+	for(i = 0; i < numsorts; i++){
+		closePipe(outPipe[i][0]);
+	}
+
+	//fdopen() all output pipes
+	FILE *outputs[numsorts];
+	for(i=0; i < numsorts; i++){
+		outputs[i] = fdopen(outPipe[i][1], "w");
+		if(outputs[i] == NULL)
+			printf("Error: could not create output stream.\n");
+	}
+
+	//Distribute words to them
+	i = 0;
+	while(scanf("%[^,]%*c,", word) != EOF){
+		strtolower(word);
+		fputs(word, outputs[i % numsorts]); //round robin
+		fputs("\n", outputs[i % numsorts]); //sort needs newline
+		i++;
+	}
+
+	//Flush the streams:
+	for(i=0; i < numsorts; i++){
+		if(fclose(outputs[i]) == EOF)
+			printf("Error closing stream.\n");
+	}
 }
+
+/* Converts a string to lowercase */
+char *strtolower(char *str){
+	int i;
+	for(i=0;i<sizeof(str);i++){
+		str[i] = tolower(str[i]);
+	}
+	return str;
+}
+
 
 void nevermore(int errno)
 {
@@ -141,6 +187,77 @@ void nevermore(int errno)
 	exit(1);
 }
 
+struct word_counter {
+	char word[MAX_WORD_LEN];
+	int count;
+};
+
+//this cannot stay. For testing purposes.
+void suppressor_process(int **in_pipe)
+{
+	int i;
+	char **words;
+	FILE *inputs[num_children];
+	struct word_counter *cur_word = malloc(sizeof(struct word_counter));
+	int alpha;//index of alpha word in pipe
+	int null_count = 0; //Increments if output from pipe is NULL (meaning EOF)
+
+	/* initialize word array */
+	words = malloc(num_children * sizeof(char *));
+	for (i = 0; i < num_children; i++) {
+		words[i] = malloc(MAX_WORD_LEN * sizeof(char));
+	}
+
+	/* fdopen in_pipes and get first batch of words to initialize cur_word with */
+	for (i = 0; i < num_children; i++) {
+		inputs[i] = fdopen(in_pipe[i][0], "r");
+		if (fgets(words[i], MAX_WORD_LEN, inputs[i]) == NULL){
+			words[i] = NULL;
+			null_count++;
+		}
+	}
+	/* Find the lowest alphabetical word in the array */
+	alpha = alpha_index(num_children, words);
+
+	/* Make this word our current word with count 1 */
+	strncpy(cur_word->word, words[alpha], MAX_WORD_LEN);
+	cur_word->count = 1;
+
+	while (null_count < num_children) {
+		if (fgets(words[alpha], MAX_WORD_LEN, inputs[alpha]) == NULL) {
+			words[alpha] = NULL;
+			null_count++;
+		}
+		alpha = alpha_index(num_children, words);
+		if (alpha == -1) /* Meaning that the entire array was NULL */
+			break;
+		/* If the next word is the same as the current one, increment count */
+		if (!strcmp(cur_word->word, words[alpha])) {
+			cur_word->count++;
+		} else {
+			/* If it's a new word, print the last one and set current to the new one */
+			printf("%d %s", cur_word->count, cur_word->word);
+			strncpy(cur_word->word, words[alpha], MAX_WORD_LEN);
+			cur_word->count = 1;
+		}
+	}
+
+	/* Print last word */
+	printf("%d %s", cur_word->count, cur_word->word);
+
+	/* Free words array */
+	for (i = 0; i < num_children; i++) {
+		free(words[i]);
+	}
+	free(words);
+	free(cur_word);
+
+	/* Close inputs */
+	for (i = 0; i < num_children; i++) {
+		fclose(inputs[i]);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	num_children = atoi(argv[1]);
@@ -155,6 +272,7 @@ int main(int argc, char **argv)
 	to_nanny = build_bathroom(num_children);
 	spawn(num_children, to_children, to_nanny);
 	// parse of some kind
+	word_vomit(num_children, to_children);
 	hire_nanny(to_nanny);
 	//murder children -from book
 	int childPid = 0;
@@ -173,40 +291,7 @@ int main(int argc, char **argv)
  *spawn suppressor --nanny has been hired
  *free allocated arrays --bathroom has been destroyed
  *choose/use supressor
- *parser
+ *parser --words have been vomitted
  *debug
 
-void RRParser(int numsorts, int **outPipe)
-{
-    int i;
-    char word[MAX_WORD_LEN];
-
-    //Close read end of pipes
-    for(i = 0; i < numsorts; i++){
-        closePipe(outPipe[i][0]);
-    }
-
-    //fdopen() all output pipes
-    FILE *outputs[numsorts];
-    for(i=0; i < numsorts; i++){
-        outputs[i] = fdopen(outPipe[i][1], "w");
-        if(outputs[i] == NULL)
-            printf("Error: could not create output stream.\n");
-    }
-
-    //Distribute words to them
-    i = 0;
-    while(scanf("%[^,]%*c,", word) != EOF){
-        strtoupper(word);
-        fputs(word, outputs[i % numsorts]); //round robin
-        fputs("\n", outputs[i % numsorts]); //sort needs newline
-        i++;
-    }
-
-    //Flush the streams:
-    for(i=0; i < numsorts; i++){
-        if(fclose(outputs[i]) == EOF)
-            printf("Error closing stream.\n");
-    }
-}
  */

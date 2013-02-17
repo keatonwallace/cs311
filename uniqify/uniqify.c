@@ -26,24 +26,32 @@ int num_children = 0;
 /*spawn is a function that takes int as a  parameter and spawns that number of
  *child processes.
  */
-void spawn(int num_spawn, int **into, int **outof)
+void spawn( int **into, int **outof)
 {
+	printf("this is the start of spawn\n");
+	children = malloc(sizeof(pid_t) * num_chilldren);
 	pid_t pid;
 	int x;
-	for (x = 0; x < num_spawn; x++){
+	for (x = 0; x < num_children; x++){
 		build_toilet(into[x]);
 		build_toilet(outof[x]);
-		switch((pid = fork())){
+		printf("first pipes have been made\n");
+		printf("%d\n", into[x][0]);
+		switch(pid = fork()){
 		case -1:
 			//in parent, oops
 			perror("forking went awry (use a condom kids)");
 			break;
 		case 0:
+			printf("just print something in child\n");
+			break;
 			//child case
 			close(STDIN_FILENO);
 			close(STDOUT_FILENO);
 			dup2(into[x][0], STDIN_FILENO);
+			printf("in child about to break toilet\n");
 			break_toilet(outof[x][0]);			      
+			printf("in child after break toilet\n");
 			dup2(outof[x][1], STDOUT_FILENO);
 			int i, j;
 			for (i = 0; i < x + 1; i++) {
@@ -55,10 +63,14 @@ void spawn(int num_spawn, int **into, int **outof)
 			execlp("sort", "sort", (char *)NULL);
 			break;
 		default:
+			printf("just print something\n");
 			//parent case -- result holds pid of child
 			children[x] = pid;
+			printf("%d this is the childs pid", pid);
+			printf("in parent about to break toilet\n");
 			break_toilet(into[x][0]);
 			break_toilet(outof[x][1]);
+			printf("in parent after break toilet\n");
 			break;
 		}
 	}
@@ -83,6 +95,7 @@ int **build_bathroom(int num)
 	for (x = 0; x < num; x++){
 		toilets[x] = malloc(sizeof(int) * 2);
 	}
+	printf("This is building the bathroom\n");
 	return toilets;
 }
 
@@ -129,7 +142,7 @@ void word_vomit(int numsorts, int **outPipe)
 
 	//Close read end of pipes
 	for(i = 0; i < numsorts; i++){
-		closePipe(outPipe[i][0]);
+		break_toilet(outPipe[i][0]);
 	}
 
 	//fdopen() all output pipes
@@ -258,9 +271,37 @@ void suppressor_process(int **in_pipe)
 	}
 }
 
+/* returns the index of the lowest alphabetical word in an array */
+int alpha_index(int num_words, char **words)
+{
+	int alpha = -1;
+	int i;
+	/* First, find the first alpha word. If all the words are NULL, return -1 for error */
+	for (i = 0; i < num_words; i++) {
+		if (words[i] == NULL) {
+			continue;
+		} else {
+			alpha = i;
+			break;
+		}
+	}
+	if (alpha == -1)
+		return -1;
+	/* Now find the lowest alphabetical word */
+	for (i = 0; i < num_words; i++) {
+		if (words[i] == NULL)
+			continue;
+		if (strcmp(words[i], words[alpha]) < 0)
+			alpha = i;
+	}
+	return alpha;
+}
+
+
 int main(int argc, char **argv)
 {
 	num_children = atoi(argv[1]);
+	printf("%d\n", num_children);
 	struct sigaction quoth_the_raven;
 	quoth_the_raven.sa_handler = nevermore;
 	sigemptyset(&quoth_the_raven.sa_mask);
@@ -268,9 +309,13 @@ int main(int argc, char **argv)
 	sigaction(SIGQUIT, &quoth_the_raven, NULL);
 	sigaction(SIGINT, &quoth_the_raven, NULL);
 	sigaction(SIGHUP, &quoth_the_raven, NULL);
+	printf("Signal handler set\n");
 	to_children = build_bathroom(num_children);
+	printf("this is the to_children pipes\n");
 	to_nanny = build_bathroom(num_children);
+	printf("this is the to_nanny pipes\n");
 	spawn(num_children, to_children, to_nanny);
+	printf("children have been spawned\n");
 	// parse of some kind
 	word_vomit(num_children, to_children);
 	hire_nanny(to_nanny);

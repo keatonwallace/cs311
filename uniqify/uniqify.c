@@ -3,11 +3,17 @@
  *Authored by Keaton Wallace
  *
 */
-
-#include <pipe.h>
-#include <stdio.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
 #include <unistd.h>
+#include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 //exec lp
 //char* NULL
 //./a.out<in>out
@@ -15,13 +21,14 @@
 pid_t *children;
 int **to_children;
 int **to_nanny;
+int num_children = 0;
 
 /*spawn is a function that takes int as a  parameter and spawns that number of
  *child processes.
  */
 void spawn(int num_spawn, int **into, int **outof)
 {
-	pit_t pid;
+	pid_t pid;
 	int x;
 	for (x = 0; x < num_spawn; x++){
 		build_toilet(into[x]);
@@ -122,16 +129,21 @@ void nevermore(int errno)
 			kill(children[x], SIGQUIT);
 		}
 	}
+	int childPid = 0;
 	while ((childPid = wait(NULL)) != -1)
 		continue;
 	if (errno != ECHILD) /* An unexpected error... */
-		errExit("wait");
-	//stopped here
+		perror("waiting for children in signal handler");
+	if(to_children != NULL)
+		destroy_bathroom(num_children, to_children);
+	if(to_nanny != NULL)
+		destroy_bathroom(num_children, to_nanny);
+	exit(1);
 }
 
 int main(int argc, char **argv)
 {
-	int num_children = atoi(argv[1]);
+	num_children = atoi(argv[1]);
 	struct sigaction quoth_the_raven;
 	quoth_the_raven.sa_handler = nevermore;
 	sigemptyset(&quoth_the_raven.sa_mask);
@@ -144,18 +156,57 @@ int main(int argc, char **argv)
 	spawn(num_children, to_children, to_nanny);
 	// parse of some kind
 	hire_nanny(to_nanny);
-	//murder children
-	break_bathroom(num_children, to_children);
-	break_bathroom(num_children, to_nanny);
+	//murder children -from book
+	int childPid = 0;
+	while ((childPid = wait(NULL)) != -1)
+		continue;
+	if (errno != ECHILD) /* An unexpected error... */
+		perror("waiting for children to die");
+	destroy_bathroom(num_children, to_children);
+	destroy_bathroom(num_children, to_nanny);
 	free(children);
 	return 0;
 }
 
 /*todo
- *figure out sig handler
+ *figure out sig handler --qouth_the_raven nevermore
  *spawn suppressor --nanny has been hired
  *free allocated arrays --bathroom has been destroyed
  *choose/use supressor
  *parser
  *debug
+
+void RRParser(int numsorts, int **outPipe)
+{
+    int i;
+    char word[MAX_WORD_LEN];
+
+    //Close read end of pipes
+    for(i = 0; i < numsorts; i++){
+        closePipe(outPipe[i][0]);
+    }
+
+    //fdopen() all output pipes
+    FILE *outputs[numsorts];
+    for(i=0; i < numsorts; i++){
+        outputs[i] = fdopen(outPipe[i][1], "w");
+        if(outputs[i] == NULL)
+            printf("Error: could not create output stream.\n");
+    }
+
+    //Distribute words to them
+    i = 0;
+    while(scanf("%[^,]%*c,", word) != EOF){
+        strtoupper(word);
+        fputs(word, outputs[i % numsorts]); //round robin
+        fputs("\n", outputs[i % numsorts]); //sort needs newline
+        i++;
+    }
+
+    //Flush the streams:
+    for(i=0; i < numsorts; i++){
+        if(fclose(outputs[i]) == EOF)
+            printf("Error closing stream.\n");
+    }
+}
  */

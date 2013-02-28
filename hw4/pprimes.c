@@ -13,51 +13,29 @@ enum { BITS_PER_WORD = 8 };
 #define BIT_OFFSET(b)  ((b) % BITS_PER_WORD)
 
 static char* primes;
+unsigned long max_num;
+int num_threads;
 
-
-int sieve(int n, int* primes)
+void set_bitmap()
 {
-	// Variables 'i' and 'k' are iteration variables.
-	int i;
-	int k;
-	// sqrtn is used as a starting guesstimate for maximum iteration value
-	int sqrt_n = sqrt(n);
-	// numPrimes will tally the number of prime numbers, initaially, we have already counted 2 as a prime number
-	int num_primes = 1;
-	// Allocating memory for arrays, larger than we possibly need.
-	// Array 'numbers' contains all numbers between 1 and n
-	int* numbers = (int*) malloc(sizeof(int)*(n - 1));
-	// Initializes 'numbers'
-	for (i = 0; i < n - 1; i++) {
-		numbers[i] = i + 1;
+	primes[0] = 0b01010110;
+	unsigned long i;
+	for(i = 1; i < (max_num / BITS_PER_WORD); i++)
+		primes[i] = 0b01010101;
+}
+
+void seed_primes()
+{
+	unsigned long i;
+	unsigned long j = 3;
+	unsigned long sqrt_n = sqrt(sqrt(max_num));
+	while(j <= sqrt_n + 1){
+		for(i=k; i*k <= sqrt(max_num)+1; i++)
+			set_NotPrime;
+		j++;
+		while(!check_Prime(j))
+			j++;
 	}
-	// Marking '1' and '2' (the first two values in 'numbers') as prime numbers. A negative value implies prime
-	numbers[0] = - numbers[0];
-	numbers[1] = - numbers[1];
-	// Setting the first prime number as '2', so primes may be counted by iterating by 2, starting at 3
-	primes[0] = 2;
-	// Iterate until the square root on 'n'
-	for (k = 2; k < sqrt_n; k+=2) {
-		// Mark all numbers which 'k' is a factor of until 'n'
-		if (numbers[k] > 0) {
-			for (i = 2; i * (k + 1) < n; i++) {
-				// Mark a number by turning it negative
-				numbers[i * (k + 1) - 1] = -(i * (k + 1));
-			}
-			// Record our prime number, and add another tally to the total primes found
-			primes[num_primes] = k + 1;
-			num_primes++;
-		}
-	}
-	// Find all unmarked numbers not yet iterated through, and record them in the primes list
-	for (k; k < n - 1; k+=2) {
-		if (numbers[k] > 0) {
-			primes[num_primes] = k + 1;
-			num_primes++;
-		}
-	}
-	// Returns the number of primes, the primes array was modified and accessible outside this function
-	return num_primes;
 }
 
 void fork()
@@ -78,11 +56,43 @@ void fork()
 	return 0;
 }
 
-
 int main(int argc, char **argv)
 {
-	/*add a arg for thread vs process*/
-	/* This stuff is from the original prime stuff
+	if(argc != 5){
+		printf("[P or T] [# of P or T] [max prime] [print y/n] \n");
+		exit(EXIT_FAILURE);
+	}
+	char type = argv[1][0];
+	if(type != 'p' && type != 'P' && type != 't' && type != 'T'){
+		printf("invalid process type, need either p or t\n");
+		exit(EXIT_FAILURE);
+	}
+	int num = atoi(argv[2]);
+	if(num > 0)
+		num_threads = num;
+	else{
+		printf("invalid number of p/t\n");
+		exit(EXIT_FAILURE);
+	}
+	unsigned int max;
+	if((max = atoi(argv[3])) > 0)
+		max_num = max;
+	else{
+		printf("invalid max number\n");
+		exit(EXIT_FAILURE);
+	}
+	char print;
+	if (argv[4][0] == 'y' || argv[4][0] == 'n') {
+		print = argv[4][0];
+	} else {
+		printf("Invalid entry for print primes.\n")
+		exit(EXIT_FAILURE);
+	}
+
+	set_bitmap();
+	seed_primes();
+
+	/* This stuff is from the original prime stuff from dave
 	// Variable 'n' is the maximum value all determined prime numbers can be
 	//doesn't matter using max int
 	int x = atoi(argv[1]);
@@ -144,3 +154,16 @@ bitmap[354] | MASK[2];
 
 //is the bit corresponding to 432935 set?
 bitmap[432935 / 8] & MASK[432935 % 8];
+
+/*
+ *todo
+ *set bitmap --set
+ *is mask necesary? --nope
+ *shared memory
+ *figure out process
+ **spawn
+ **sieve --done for parent
+ **sieve for kiddies
+ *print
+write threaded version of code
+*/

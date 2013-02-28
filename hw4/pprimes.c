@@ -15,6 +15,7 @@ enum { BITS_PER_WORD = 8 };
 static char* primes;
 unsigned long max_num;
 int num_threads;
+pid_t *process_array;
 
 void set_bitmap()
 {
@@ -40,20 +41,46 @@ void seed_primes()
 
 void fork()
 {
-	//on fork, copy-on-write semantics are used
-	int pid;
-	switch(pid = fork()){
-	case -1:
-		//oops...
-	case 0:
-		//child specific code goes here
-		//we have lots of execs
-		execlp("ls", "ls", (char *)NULL);
-	default:
-		//parent specific code goes here
+	unsigned int i;
+	for (i = 0; i < num_threads; i++) {
+		process_array = malloc(sizeof(pid_t) * num_threads);
+		pid_t pid;
+		switch (pid = fork()) {
+		case -1://Oops case
+			perror("Forking error");
+			exit();
+		case 0://Child case
+			sieve(i);
+			exit(EXIT_SUCCESS);
+		default://Parent case
+			process_array[i] = pid;
+			break;
+		}
 	}
-	//both parent and child continue executing here
-	return 0;
+}
+
+void *mount_shmem(char *path, int object_size)
+{
+	int shmem_fd;
+	void *addr;
+
+	shmem_fd = shm_open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+
+	if (shmem_fd == -1)
+		puke_and_exit("Failed to open shared memory object\n");
+
+	if (ftruncate(shmem_fd, object_size) == -1)
+		puke_and_exit("Failed to resize shared memory object\n");
+
+	/* map the shared memory object */
+	addr =
+		mmap(NULL, object_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+		     shmem_fd, 0);
+
+	if (addr == MAP_FAILED)
+		puke_and_exit("Failed to map shared memory object\n");
+
+	return addr;
 }
 
 int main(int argc, char **argv)
@@ -88,7 +115,9 @@ int main(int argc, char **argv)
 		printf("Invalid entry for print primes.\n")
 		exit(EXIT_FAILURE);
 	}
-
+	unsigned long primes_size = max_num / BITS_PER_WORD + 1;
+	void *addr = mount_shmem(SHM_NAME, primes_size);
+	primes = (unsigned char *) addr;
 	set_bitmap();
 	seed_primes();
 
@@ -140,30 +169,33 @@ int check_Prime(unsigned int n) {
 }
 
 /*from class check over later*/
-#define BYTES 536870912
-uint8_t bitmap[BYTES];
+//#define BYTES 536870912
+//uint8_t bitmap[BYTES];
 
-uint8_t MASK[] = {1 << 0, 1 << 1, 1 << 2, 1 << 3,
-                  1 << 4, 1 << 5, 1 << 6, 1 << 7};
+//uint8_t MASK[] = {1 << 0, 1 << 1, 1 << 2, 1 << 3,
+//                  1 << 4, 1 << 5, 1 << 6, 1 << 7};
 
 //check bit in bitmap
 bitmap[BYTE] & MASK[3];
 
 //set bit in bitmap
-bitmap[354] | MASK[2];
+//bitmap[354] | MASK[2];
 
 //is the bit corresponding to 432935 set?
-bitmap[432935 / 8] & MASK[432935 % 8];
+//bitmap[432935 / 8] & MASK[432935 % 8];
 
 /*
  *todo
  *set bitmap --set
  *is mask necesary? --nope
- *shared memory
+ *shared memory --shared
  *figure out process
- **spawn
+ **spawn --spawned
  **sieve --done for parent
  **sieve for kiddies
+ *happy/sad
+ **should be something here but I want to get the finding part done first
  *print
-write threaded version of code
+ *write threaded version of code
+ **pthreads
 */

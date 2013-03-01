@@ -7,15 +7,26 @@
 #include <stdio.h>
 #include <unistd.h>
 
+/*function protptypes*/
+void set_NotPrime( unsigned int n);
+void set_bitmap();
+void seed_primes();
+void fork();
+void *mount_shmem(char *path, int object_size);
+int check_Prime(unsigned int n);
+
+
 typedef char word_t;
 enum { BITS_PER_WORD = 8 };
 #define WORD_OFFSET(b) ((b) / BITS_PER_WORD)
 #define BIT_OFFSET(b)  ((b) % BITS_PER_WORD)
+#define SHM_NAME "/wallacke_primes"
 
 static char* primes;
 unsigned long max_num;
 int num_threads;
 pid_t *process_array;
+
 
 void set_bitmap()
 {
@@ -48,7 +59,7 @@ void fork()
 		switch (pid = fork()) {
 		case -1://Oops case
 			perror("Forking error");
-			exit();
+			exit(EXIT_FAILURE);
 		case 0://Child case
 			sieve(i);
 			exit(EXIT_SUCCESS);
@@ -66,20 +77,21 @@ void *mount_shmem(char *path, int object_size)
 
 	shmem_fd = shm_open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
-	if (shmem_fd == -1)
-		puke_and_exit("Failed to open shared memory object\n");
-
-	if (ftruncate(shmem_fd, object_size) == -1)
-		puke_and_exit("Failed to resize shared memory object\n");
-
+	if (shmem_fd == -1){
+		perror("Failure opening shared memory");
+		exit(EXIT_FAILURE);
+	}
+	if (ftruncate(shmem_fd, object_size) == -1){
+		perror("Failure resizing shared memory");
+	}
 	/* map the shared memory object */
 	addr =
 		mmap(NULL, object_size, PROT_READ | PROT_WRITE, MAP_SHARED,
 		     shmem_fd, 0);
-
-	if (addr == MAP_FAILED)
-		puke_and_exit("Failed to map shared memory object\n");
-
+	if (addr == MAP_FAILED){
+		perror("Failure mapping shared memory");
+		exit(EXIT_FAILURE);
+	}
 	return addr;
 }
 
@@ -101,8 +113,8 @@ int main(int argc, char **argv)
 		printf("invalid number of p/t\n");
 		exit(EXIT_FAILURE);
 	}
-	unsigned int max;
-	if((max = atoi(argv[3])) > 0)
+	unsigned long max;
+	if((max = atol(argv[3])) > 0)
 		max_num = max;
 	else{
 		printf("invalid max number\n");
@@ -120,29 +132,8 @@ int main(int argc, char **argv)
 	primes = (unsigned char *) addr;
 	set_bitmap();
 	seed_primes();
-
-	/* This stuff is from the original prime stuff from dave
-	// Variable 'n' is the maximum value all determined prime numbers can be
-	//doesn't matter using max int
-	int x = atoi(argv[1]);
-	// primeArray declared outside sieve method call, afterward will contain all primes found under x
-	//this needs to happen in shared memory
-	int prime_array[x];
-	// result will contain the number of primes found under x, returned by the sieve method call
-	int result = sieve(x, prime_array);
-	// Print number of primes
-	//for testing purposes
-	printf("%d\n", result);
-	// Print list of primes
-	for (i = 1; i < result+1; i++) {
-		printf("%d\t", prime_array[i-1]);
-		// Rows of 10, please!
-		if (i % 10 == 0)
-			printf("\n");
-	}
-	printf("\n");
-	return 0;
-	*/
+	fork();
+	
 }
 
 // bitmap stuff
@@ -168,24 +159,11 @@ int check_Prime(unsigned int n) {
 	return bit == 0; 
 }
 
-/*from class check over later*/
-//#define BYTES 536870912
-//uint8_t bitmap[BYTES];
-
-//uint8_t MASK[] = {1 << 0, 1 << 1, 1 << 2, 1 << 3,
-//                  1 << 4, 1 << 5, 1 << 6, 1 << 7};
-
-//check bit in bitmap
-bitmap[BYTE] & MASK[3];
-
-//set bit in bitmap
-//bitmap[354] | MASK[2];
-
-//is the bit corresponding to 432935 set?
-//bitmap[432935 / 8] & MASK[432935 % 8];
-
 /*
  *todo
+
+ *HIGH PRIORITY* Remove all traces of threaded version
+
  *set bitmap --set
  *is mask necesary? --nope
  *shared memory --shared
@@ -196,6 +174,8 @@ bitmap[BYTE] & MASK[3];
  *happy/sad
  **should be something here but I want to get the finding part done first
  *print
+
+ *decided to split into seperate code. Hopefully that is easier.
  *write threaded version of code
  **pthreads
 */

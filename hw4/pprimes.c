@@ -24,7 +24,7 @@ enum { BITS_PER_WORD = 8 };
 
 static char* primes;
 unsigned long max_num;
-int num_threads;
+int num_proc;
 pid_t *process_array;
 
 
@@ -53,8 +53,8 @@ void seed_primes()
 void fork()
 {
 	unsigned int i;
-	for (i = 0; i < num_threads; i++) {
-		process_array = malloc(sizeof(pid_t) * num_threads);
+	for (i = 0; i < num_proc; i++) {
+		process_array = malloc(sizeof(pid_t) * num_proc);
 		pid_t pid;
 		switch (pid = fork()) {
 		case -1://Oops case
@@ -83,6 +83,7 @@ void *mount_shmem(char *path, int object_size)
 	}
 	if (ftruncate(shmem_fd, object_size) == -1){
 		perror("Failure resizing shared memory");
+		exit(EXIT_FAILURE);
 	}
 	/* map the shared memory object */
 	addr =
@@ -93,6 +94,16 @@ void *mount_shmem(char *path, int object_size)
 		exit(EXIT_FAILURE);
 	}
 	return addr;
+}
+
+void set_NotPrime( unsigned int n) {
+	primes[WORD_OFFSET(n)] |= (1 << BIT_OFFSET(n));
+}
+
+int check_Prime(unsigned int n) {
+
+	word_t bit = primes[WORD_OFFSET(n)] & (1 << BIT_OFFSET(n));
+	return bit == 0;
 }
 
 int main(int argc, char **argv)
@@ -108,7 +119,7 @@ int main(int argc, char **argv)
 	}
 	int num = atoi(argv[2]);
 	if(num > 0)
-		num_threads = num;
+		num_proc = num;
 	else{
 		printf("invalid number of p/t\n");
 		exit(EXIT_FAILURE);
@@ -141,23 +152,6 @@ int main(int argc, char **argv)
 
 // for the process vertion you will have primes = mmap( , , , , ); somewhere in your code
 /*figure out if that is an exact statement*/
-
-// for the thread vertion you will have primes = (char*)malloc(sizeof(char)*(4294967296/BITS_PER_WORD));
-
-
-void set_NotPrime( unsigned int n) { 
-	primes[WORD_OFFSET(n)] |= (1 << BIT_OFFSET(n));
-}
-
-void set_Prime(unsigned int n) {// you should never use this but i added it anyways
-	primes[WORD_OFFSET(n)] &= ~(1 << BIT_OFFSET(n)); 
-}
-
-int check_Prime(unsigned int n) {
-	
-	word_t bit = primes[WORD_OFFSET(n)] & (1 << BIT_OFFSET(n));
-	return bit == 0; 
-}
 
 /*
  *todo

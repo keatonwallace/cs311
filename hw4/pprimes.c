@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
 
 /*function protptypes*/
 void set_NotPrime( unsigned int n);
@@ -106,6 +107,34 @@ int check_Prime(unsigned int n) {
 	return bit == 0;
 }
 
+void sieve(unsigned long i)
+{
+	unsigned long min = i * (max_num / num_proc) + 1;
+	/* If we're on the last thread, set the max equal to the max_prime */
+	unsigned long max =(i ==num_proc - 1) ? max_num : min + (max_num / num_proc) - 1;
+	unsigned long j;
+	unsigned long k;//This is much faster as long as opposed to unsigned int
+	j = 1;
+	while ((j = next_seed(j)) != 0) {
+		for (k = (min / j < 3) ? 3 : (min / j); (j * k) <= max;k++) {
+			set_NotPrime(j * k);
+		}
+	}
+}
+
+unsigned long next_seed(unsigned long cur_seed)
+{
+	unsigned long i;
+	for (i = cur_seed + 1; i <= sqrt(max_num); i++)
+		if (check_Prime(i) == 1)
+			return i;
+	return 0;
+}
+
+static void nevermore()
+{
+}
+
 int main(int argc, char **argv)
 {
 	if(argc != 5){
@@ -138,13 +167,38 @@ int main(int argc, char **argv)
 		printf("Invalid entry for print primes.\n")
 		exit(EXIT_FAILURE);
 	}
+	struct sigaction act;
+
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = nevermore;
+	act.sa_flags = 0;
+
+	sigaction(SIGQUIT, &act, NULL);
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGHUP, &act, NULL);
+
+	printf("hello progra\nm");
 	unsigned long primes_size = max_num / BITS_PER_WORD + 1;
+	printf("shouldn't be an error before here\n");
 	void *addr = mount_shmem(SHM_NAME, primes_size);
+	printf("memory is mounted");
 	primes = (unsigned char *) addr;
+	printf("primes did something I don't understand\n");
 	set_bitmap();
+	printf("bitmap is set");
 	seed_primes();
+	printf("primes are seeded");
 	fork();
-	
+	printf("children have lived and died");
+	shm_unlink(SHM_NAME);
+	int pid = 0;
+	while((pid=wait(NULL))!= -1)
+		continue;
+	if(errno!=ECHILD)
+		perror("couldn't kill child processes");
+	free(process_array);
+	printf("everything has been freed");
+	return 0;
 }
 
 // bitmap stuff
@@ -156,20 +210,13 @@ int main(int argc, char **argv)
 /*
  *todo
 
- *HIGH PRIORITY* Remove all traces of threaded version
+ *signal handler
+ *function prototypes
 
- *set bitmap --set
- *is mask necesary? --nope
- *shared memory --shared
- *figure out process
- **spawn --spawned
- **sieve --done for parent
- **sieve for kiddies
+debug
+
  *happy/sad
  **should be something here but I want to get the finding part done first
  *print
 
- *decided to split into seperate code. Hopefully that is easier.
- *write threaded version of code
- **pthreads
 */

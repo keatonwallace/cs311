@@ -12,7 +12,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <math.h>
-//#include <signal.h>
 
 /*function protptypes*/
 void set_NotPrime( unsigned int n);
@@ -29,13 +28,10 @@ typedef char word_t;
 enum { BITS_PER_WORD = 8 };
 #define WORD_OFFSET(b) ((b) / BITS_PER_WORD)
 #define BIT_OFFSET(b)  ((b) % BITS_PER_WORD)
-//#define SHM_NAME "/wallacke_primes"
 
 static char* primes;
 unsigned long max_num;
 int num_threads;
-//pid_t *process_array;
-
 
 void set_bitmap()
 {
@@ -65,7 +61,7 @@ void set_NotPrime( unsigned int n) {
 
 int check_Prime(unsigned int n) {
 
-	word_t bit = primes[WORD_OFFSET(n)] & (1 << BIT_OFFSET(n));
+	char bit = primes[WORD_OFFSET(n)] & (1 << BIT_OFFSET(n));
 	return bit == 0;
 }
 
@@ -95,7 +91,7 @@ void create_threads(){
 	free(thread);
 }
 
-void thread_sort(void *vp){
+void *thread_sort(void *vp){
 	unsigned long i = (unsigned long) vp;
 	unsigned long min = i * (max_num / num_threads) + 1;
 	/* If we're on the last thread, set the max equal to the max_prime */
@@ -115,14 +111,29 @@ unsigned long next_seed(unsigned long cur_seed)
 {
 	unsigned long i;
 	for (i = cur_seed + 1; i <= sqrt(max_num); i++)
-		if (check_Prime(i) == 0)
+		if (check_Prime(i) == 1)
 			return i;
 	return 0;
 }
 
-void nevermore(int s)
+/*void nevermore(int s)
 {
 	exit(EXIT_FAILURE);
+	}*/
+
+void printPrimes(char print){
+	unsigned long i;
+	unsigned long j=0;
+	if(max_num > 2 && print == 'y')
+		printf("2\n");
+	for(i=3;i<=max_num; i = i+2){
+		if(check_Prime(i)){
+			if(print == 'y')
+				printf("%lu\n",i);
+			j++;
+		}
+	}
+	printf("There are %lu primes between 0 and %lu\n", j+1, max_num);
 }
 
 int main(int argc, char **argv)
@@ -174,6 +185,7 @@ int main(int argc, char **argv)
 	printf("seeding complete\n");
 	create_threads();
 	printf("threads have been created and died\n");
+	printPrimes(print);
 	free(primes);
 	return 0;
 }
@@ -182,17 +194,7 @@ int main(int argc, char **argv)
 /*
  *todo
 
- *HIGH PRIORITY* Remove all traces of process version
-
- *set bitmap --set
- *figure out process --figured
- **make threads --made
- **sieve --done for parent
- **sieve for kiddies --done I think
- *print
-
-
  *happy/sad
- **should be something here but I want to get the finding part done first
+ ** don't know what to do yet. Methinks this will be postponed till after process version reaches the same point.
 
  */

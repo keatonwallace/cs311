@@ -42,6 +42,7 @@ int main(int argc, char **argv)
 		perror("couldn't fork child process in compute");
 		exit(EXIT_FAILURE);
 	case 0:
+		//ops_per_sec and server comm should go here
 		find_perfection();
 		break;
 	case 1:
@@ -66,9 +67,43 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+unsigned int ops_a_sec()
+{
+	unsigned int i;
+	unsigned int j = 7;
+	clock_t begin, end;
+	begin = clock();
+	for(i = 1; i < 100000000; i++){
+		i % j;
+	}
+	end = clock();
+	unsigned int ops_per_sec = (int) 100000000/(end - begin);
+	return 15 * ops_per_sec;
+}
+
+int is_perfect(unsigned int n)
+{
+	if(n == 1) //1 works, but is not a perfect number
+		return 0;
+	int i;
+	int sum = 1;
+	for(i=2; i<sqrt(n); i++){
+		if((n % i) == 0){
+			sum += i;
+			sum += n/i;
+		}
+	}
+	if(sum == n) 
+		return 1;
+	return 0;
+}
+
+
 /*todo
- *number of mods a sec
- *find perfect numbers in range
+ *number of mods a sec --done
+ *find perfect numbers in range 
+ **is_perfect --done
+ **check range with is_perfect
  *send perfect number to server
  *handle kill signal from server
  */
